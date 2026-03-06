@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comment on an AI tool.",
+      "type": "object",
+      "properties": {
+        "toolId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["toolId", "userId", "text", "createdAt"]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "User's favorite AI tool mapping.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "toolId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "toolId", "createdAt"]
+    },
+    "AITool": {
+      "title": "AI Tool",
+      "description": "Information about an AI tool in the library.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "link": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["title", "description", "imageUrl", "link", "category"]
+    },
+    "WhitelistedEmail": {
+      "title": "Whitelisted Email",
+      "description": "Emails allowed to log in as users.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/tools/{toolId}": {
+      "schema": "AITool",
+      "description": "AI tools library."
+    },
+    "/whitelist/{emailId}": {
+      "schema": "WhitelistedEmail",
+      "description": "Allowed emails for login."
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Public comments on tools."
+    },
+    "/favorites/{favoriteId}": {
+      "schema": "Favorite",
+      "description": "User favorites."
+    }
+  }
+}
