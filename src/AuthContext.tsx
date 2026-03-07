@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (!isPrimaryAdmin) {
             const whitelistRef = collection(db, 'whitelist');
-            const q = query(whitelistRef, where('email', '==', firebaseUser.email));
+            const q = query(whitelistRef, where('email', '==', userEmail));
             try {
               const querySnapshot = await getDocs(q);
               if (querySnapshot.empty) {
@@ -207,8 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If not admin, check whitelist
       if (!isPrimaryAdmin) {
         try {
+          const emailLower = email.toLowerCase().trim();
           const whitelistRef = collection(db, 'whitelist');
-          const q = query(whitelistRef, where('email', '==', email));
+          const q = query(whitelistRef, where('email', '==', emailLower));
           const querySnapshot = await getDocs(q);
           if (querySnapshot.empty) {
             // Not authorized, sign out and delete the account

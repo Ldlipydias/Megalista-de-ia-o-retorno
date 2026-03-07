@@ -27,7 +27,7 @@ import {
   Send
 } from 'lucide-react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { AuthProvider, useAuth } from './AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -366,7 +366,7 @@ const ToolModal: React.FC<{
         </button>
 
         {/* Left: Image & Info */}
-        <div className="w-full md:w-1/2 relative aspect-[2/3] md:aspect-auto">
+        <div className="w-full md:w-1/2 relative aspect-video md:aspect-auto flex-shrink-0">
           <img 
             src={tool.imageUrl} 
             alt={tool.title} 
@@ -402,7 +402,7 @@ const ToolModal: React.FC<{
         </div>
 
         {/* Right: Description & Comments */}
-        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col h-full overflow-y-auto bg-zinc-950">
+        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col flex-1 min-h-0 overflow-y-auto bg-zinc-950">
           <div className="mb-8">
             <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">Sobre a Ferramenta</h3>
             <p className="text-gray-300 leading-relaxed">{tool.description}</p>
@@ -773,6 +773,14 @@ const AdminUsers = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    if (status) {
+      const timer = setTimeout(() => setStatus(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [status]);
 
   useEffect(() => {
     const unsubWhitelist = onSnapshot(collection(db, 'whitelist'), (snapshot) => {
@@ -789,10 +797,12 @@ const AdminUsers = () => {
     if (!newEmail) return;
     setLoading(true);
     try {
-      await addDoc(collection(db, 'whitelist'), { email: newEmail, addedAt: new Date().toISOString() });
+      const emailLower = newEmail.toLowerCase().trim();
+      await addDoc(collection(db, 'whitelist'), { email: emailLower, addedAt: new Date().toISOString() });
       setNewEmail('');
+      setStatus({ msg: "E-mail adicionado com sucesso!", type: 'success' });
     } catch (err) {
-      alert("Erro ao adicionar e-mail");
+      setStatus({ msg: "Erro ao adicionar e-mail. Verifique suas permissões.", type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -801,16 +811,22 @@ const AdminUsers = () => {
   const handleRemoveEmail = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'whitelist', id));
+      setStatus({ msg: "E-mail removido da lista.", type: 'success' });
     } catch (err) {
-      console.error(err);
+      setStatus({ msg: "Erro ao remover e-mail.", type: 'error' });
     }
   };
 
   const handleDeleteUser = async (uid: string) => {
+    if (uid === auth.currentUser?.uid) {
+      setStatus({ msg: "Você não pode excluir seu próprio perfil.", type: 'error' });
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'users', uid));
+      setStatus({ msg: "Usuário excluído com sucesso.", type: 'success' });
     } catch (err) {
-      console.error(err);
+      setStatus({ msg: "Erro ao excluir usuário.", type: 'error' });
     }
   };
 
@@ -818,15 +834,26 @@ const AdminUsers = () => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     try {
       await updateDoc(doc(db, 'users', uid), { role: newRole });
-    } catch (err) {
-      console.error(err);
+      setStatus({ msg: `Cargo de ${newRole.toUpperCase()} atribuído com sucesso!`, type: 'success' });
+    } catch (err: any) {
+      console.error("Erro ao mudar cargo:", err);
+      setStatus({ msg: "Erro ao mudar cargo. Apenas o administrador principal pode fazer isso.", type: 'error' });
     }
   };
 
   return (
     <div className="min-h-screen bg-zinc-950 pt-24 px-4 md:px-12">
       <Navbar />
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="max-w-6xl mx-auto">
+        {status && (
+          <div className={cn(
+            "fixed top-24 right-4 z-[60] px-6 py-3 rounded-lg shadow-2xl animate-in fade-in slide-in-from-right-4 duration-300",
+            status.type === 'success' ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+          )}>
+            {status.msg}
+          </div>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Whitelist Section */}
         <div>
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
@@ -899,6 +926,7 @@ const AdminUsers = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };
 
