@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react';
 import { 
-  BrowserRouter as Router, 
+  HashRouter as Router, 
   Routes, 
   Route, 
   Navigate, 
@@ -1084,7 +1084,8 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
     </div>
   );
 
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Login />;
+
   if (adminOnly && user.role !== 'admin') return <Navigate to="/" />;
 
   return <>{children}</>;
@@ -1131,7 +1132,6 @@ export default function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
                 <Home />
