@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component, ReactNode } from 'react';
+import React, { useState, useEffect, Component, ReactNode, useRef } from 'react';
 import { 
   HashRouter as Router, 
   Routes, 
@@ -24,13 +24,15 @@ import {
   X,
   Heart,
   MessageSquare,
-  Send
+  Send,
+  MessageCircle
 } from 'lucide-react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where, limit } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { AuthProvider, useAuth } from './AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -76,6 +78,196 @@ interface Favorite {
   toolId: string;
 }
 
+interface GlobalComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  text: string;
+  createdAt: string;
+}
+
+// --- Global Chat Component ---
+
+const GlobalChat = () => {
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [comments, setComments] = useState<GlobalComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'global_comments'), 
+      orderBy('createdAt', 'asc'),
+      limit(50)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GlobalComment)));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [comments, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !user || submitting) return;
+
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, 'global_comments'), {
+        userId: user.uid,
+        userName: user.displayName,
+        userPhoto: user.photoURL,
+        text: newComment,
+        createdAt: new Date().toISOString()
+      });
+      setNewComment('');
+    } catch (err) {
+      console.error("Error adding global comment:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (user?.role !== 'admin') return;
+    try {
+      await deleteDoc(doc(db, 'global_comments', id));
+    } catch (err) {
+      console.error("Error deleting global comment:", err);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 left-6 z-[1000] flex flex-col items-start">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20, x: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20, x: -20 }}
+            className="mb-4 w-[320px] sm:w-[380px] h-[450px] bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                  <MessageCircle size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-sm">Chat da Comunidade</h3>
+                  <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online agora
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div 
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+            >
+              {comments.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6">
+                  <MessageSquare size={32} className="text-gray-700 mb-2" />
+                  <p className="text-gray-500 text-xs italic">Nenhuma mensagem ainda. Comece a conversa!</p>
+                </div>
+              ) : (
+                comments.map((comment) => (
+                  <div 
+                    key={comment.id} 
+                    className={cn(
+                      "flex gap-2 max-w-[85%]",
+                      comment.userId === user?.uid ? "ml-auto flex-row-reverse" : ""
+                    )}
+                  >
+                    <img src={comment.userPhoto} alt="" className="w-7 h-7 rounded-full flex-shrink-0 mt-1" />
+                    <div className="flex flex-col">
+                      <div className={cn(
+                        "px-3 py-2 rounded-2xl text-sm relative group",
+                        comment.userId === user?.uid 
+                          ? "bg-purple-600 text-white rounded-tr-none" 
+                          : "bg-zinc-800 text-gray-200 rounded-tl-none"
+                      )}>
+                        {comment.userId !== user?.uid && (
+                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">{comment.userName}</p>
+                        )}
+                        <p className="leading-relaxed">{comment.text}</p>
+                        
+                        {user?.role === 'admin' && (
+                          <button 
+                            onClick={() => handleDelete(comment.id)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        )}
+                      </div>
+                      <span className={cn(
+                        "text-[9px] text-gray-500 mt-1",
+                        comment.userId === user?.uid ? "text-right" : ""
+                      )}>
+                        {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Input */}
+            <div className="p-4 bg-white/5 border-t border-white/5">
+              <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                <input 
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Digite sua mensagem..."
+                  className="flex-1 bg-zinc-800 border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                />
+                <button 
+                  type="submit"
+                  disabled={!newComment.trim() || submitting}
+                  className="w-9 h-9 bg-purple-600 rounded-full flex items-center justify-center text-white hover:bg-purple-500 transition-colors disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
+          isOpen ? "bg-zinc-800 text-white rotate-90" : "bg-purple-600 text-white"
+        )}
+      >
+        {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
+      </motion.button>
+    </div>
+  );
+};
+
 // --- Components ---
 
 const Navbar = () => {
@@ -98,7 +290,7 @@ const Navbar = () => {
     )}>
       <div className="flex items-center gap-8">
         <Link to="/" className="text-purple-500 font-black text-2xl tracking-tighter italic">
-          MEGA LISTA IA 2
+          MEGA LISTA DE IA 2
         </Link>
         <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-300">
           <Link to="/" className="hover:text-white transition-colors">Início</Link>
@@ -166,7 +358,7 @@ const Hero = ({ tool, onSelectTool }: { tool?: AITool, onSelectTool: (tool: AITo
       />
       <div className="relative z-20 px-4 md:px-12 max-w-2xl">
         <h1 className="text-5xl md:text-7xl font-black text-white mb-4 tracking-tighter">
-          MEGA LISTA <span className="text-purple-500 italic">IA 2</span>
+          MEGA LISTA DE <span className="text-purple-500 italic">IA 2</span>
         </h1>
         <p className="text-lg text-gray-300 mb-8">
           Olá, <span className="text-purple-500 font-bold">{user?.displayName || 'Usuário'}</span>! Explore as melhores ferramentas de Inteligência Artificial selecionadas por especialistas.
@@ -566,6 +758,7 @@ const Home = () => {
           onToggleFavorite={() => handleToggleFavorite(selectedTool.id)}
         />
       )}
+      <GlobalChat />
     </div>
   );
 };
@@ -935,7 +1128,7 @@ const AdminUsers = () => {
 };
 
 const Login = () => {
-  const { user, login, register, resetPassword, loading, error } = useAuth();
+  const { user, login, register, resetPassword, loading, error, clearError } = useAuth();
   const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
@@ -943,14 +1136,7 @@ const Login = () => {
   const [name, setName] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => {
-        navigate('/');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [user, navigate]);
+  // Removed redundant navigate(user) effect as ProtectedRoute handles this
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -979,9 +1165,9 @@ const Login = () => {
       
       <div className="relative z-10 text-center max-w-md w-full">
         <h1 className="text-6xl font-black text-white mb-2 tracking-tighter italic">
-          MEGA LISTA <span className="text-purple-500">IA 2</span>
+          MEGA LISTA DE <span className="text-purple-500">IA 2</span>
         </h1>
-        <p className="text-gray-400 mb-8 uppercase tracking-[0.3em] text-sm font-bold">O Recomeço</p>
+        <p className="text-gray-400 mb-8 uppercase tracking-[0.3em] text-sm font-bold">O RETORNO</p>
         
         <div className="bg-zinc-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6">
@@ -1090,7 +1276,11 @@ const Login = () => {
           </form>
           
           <button 
-            onClick={() => setIsRegistering(!isRegistering)}
+            onClick={() => {
+              setIsRegistering(!isRegistering);
+              clearError();
+              setSuccessMsg(null);
+            }}
             className="mt-6 text-sm text-gray-400 hover:text-purple-400 transition-colors"
           >
             {isRegistering ? "Já tem uma conta? Entre aqui" : "Não tem conta? Cadastre-se agora"}

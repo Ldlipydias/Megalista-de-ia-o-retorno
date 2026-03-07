@@ -61,6 +61,19 @@
         "addedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email"]
+    },
+    "GlobalComment": {
+      "title": "Global Comment",
+      "description": "Community chat message.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text", "createdAt"]
     }
   },
   "firestore": {
@@ -83,6 +96,10 @@
     "/favorites/{favoriteId}": {
       "schema": "Favorite",
       "description": "User favorites."
+    },
+    "/global_comments/{commentId}": {
+      "schema": "GlobalComment",
+      "description": "Community chat messages."
     }
   }
 }
