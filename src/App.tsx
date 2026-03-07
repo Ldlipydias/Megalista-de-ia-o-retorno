@@ -402,45 +402,49 @@ const ToolModal: React.FC<{
         </div>
 
         {/* Right: Description & Comments */}
-        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col flex-1 min-h-0 overflow-y-auto bg-zinc-950">
-          <div className="mb-8">
-            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">Sobre a Ferramenta</h3>
-            <p className="text-gray-300 leading-relaxed">{tool.description}</p>
-          </div>
-
-          <div className="flex-1 flex flex-col min-h-0">
-            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-              <MessageSquare size={14} /> Comentários ({comments.length})
-            </h3>
-
-            {/* Comment List */}
-            <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 custom-scrollbar">
-              {comments.length === 0 ? (
-                <p className="text-gray-600 text-sm italic py-4">Nenhum comentário ainda. Seja o primeiro!</p>
-              ) : (
-                comments.map(comment => (
-                  <div key={comment.id} className="flex gap-3 group">
-                    <img src={comment.userPhoto} alt="" className="w-8 h-8 rounded-full flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-white">{comment.userName}</span>
-                        {(user?.role === 'admin' || user?.uid === comment.userId) && (
-                          <button 
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-400 leading-snug">{comment.text}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+        <div className="w-full md:w-1/2 flex flex-col min-h-0 bg-zinc-950">
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+            <div className="mb-8">
+              <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">Sobre a Ferramenta</h3>
+              <p className="text-gray-300 leading-relaxed">{tool.description}</p>
             </div>
 
-            {/* Add Comment */}
+            <div className="flex flex-col">
+              <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                <MessageSquare size={14} /> Comentários ({comments.length})
+              </h3>
+
+              {/* Comment List */}
+              <div className="space-y-4 mb-2">
+                {comments.length === 0 ? (
+                  <p className="text-gray-600 text-sm italic py-4">Nenhum comentário ainda. Seja o primeiro!</p>
+                ) : (
+                  comments.map(comment => (
+                    <div key={comment.id} className="flex gap-3 group">
+                      <img src={comment.userPhoto} alt="" className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-white">{comment.userName}</span>
+                          {(user?.role === 'admin' || user?.uid === comment.userId) && (
+                            <button 
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-400 leading-snug">{comment.text}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Add Comment - Fixed at bottom */}
+          <div className="p-6 md:p-8 pt-2 bg-zinc-950 border-t border-white/5">
             <form onSubmit={handleAddComment} className="relative">
               <input 
                 type="text" 
